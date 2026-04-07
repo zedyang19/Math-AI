@@ -298,6 +298,12 @@ kbd {
   box-shadow: 0 10px 32px rgba(74,158,255,0.55);
 }
 .doubao-orb:active { transform: scale(0.96); }
+.orb-avatar {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  pointer-events: none;
+}
 .doubao-orb.listening { background: linear-gradient(145deg, #ff7070, #ff4444); box-shadow: 0 6px 24px rgba(255,68,68,0.45); }
 .doubao-orb.thinking  { background: linear-gradient(145deg, #7ab8ff, #4a9eff); box-shadow: 0 6px 24px rgba(74,158,255,0.45); }
 .doubao-orb.speaking  { background: linear-gradient(145deg, #70d98a, #51cf66); box-shadow: 0 6px 24px rgba(81,207,102,0.45); }

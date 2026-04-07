@@ -200,7 +200,6 @@ async function sendMessage(userText) {
   ];
 
   let fullText = '';
-  let aiContentEl = null;
 
   try {
     const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
@@ -417,45 +416,7 @@ function bindEvents() {
   // 侧边栏
   els.sidebarToggle.addEventListener('click', toggleSidebar);
 
-  // AI 面板
-  els.aiFab.addEventListener('click', openAiPanel);
-  els.aiPanelClose.addEventListener('click', closeAiPanel);
-
-  // 发送消息
-  els.aiSend.addEventListener('click', () => {
-    const text = els.aiInput.value.trim();
-    if (text) { els.aiInput.value = ''; autoResizeInput(); sendMessage(text); }
-  });
-
-  els.aiInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      const text = els.aiInput.value.trim();
-      if (text) { els.aiInput.value = ''; autoResizeInput(); sendMessage(text); }
-    }
-  });
-
-  els.aiInput.addEventListener('input', autoResizeInput);
-
-  // 快捷指令
-  els.quickPrompts.addEventListener('click', e => {
-    const btn = e.target.closest('.quick-btn');
-    if (btn) {
-      const prompt = btn.dataset.prompt;
-      sendMessage(prompt);
-    }
-  });
-
-  // 清空对话
-  els.clearChatBtn.addEventListener('click', () => {
-    State.chatHistory = [];
-    els.aiMessages.innerHTML = `
-      <div class="message ai-message">
-        <div class="message-content">对话已清空，随时可以继续提问！</div>
-      </div>`;
-  });
-
-  // 设置
+  // 设置弹窗
   els.settingsBtn.addEventListener('click', openSettings);
   els.settingsClose.addEventListener('click', closeSettings);
   els.settingsSave.addEventListener('click', saveSettings);
@@ -466,21 +427,10 @@ function bindEvents() {
   // 全屏
   els.fullscreenBtn.addEventListener('click', toggleFullscreen);
 
-  // 麦克风按钮
-  if (Voice) {
-    els.micBtn.addEventListener('click', () => {
-      if (!State.aiPanelOpen) openAiPanel();
-      Voice.toggle();
-    });
-  } else {
-    els.micBtn.title = '当前浏览器不支持语音识别（请用 Chrome）';
-    els.micBtn.style.opacity = '0.4';
-    els.micBtn.style.cursor = 'not-allowed';
-  }
-
-  // 圆形头像按钮 → 点击开始/停止语音
+  // 圆形头像按钮 → 点击开始/停止
   els.doubaoOrb.addEventListener('click', () => {
-    if (State.isStreaming) { TTS.stop(); setOrbState('idle'); return; }
+    // 正在朗读时点击 → 打断
+    if (State.isStreaming) { TTS.stop(); State.isStreaming = false; setOrbState('idle'); return; }
     if (!Voice) { showToast('当前浏览器不支持语音识别，请用 Edge 或 Chrome'); return; }
     Voice.toggle();
   });
@@ -488,7 +438,7 @@ function bindEvents() {
   // 键盘快捷键
   document.addEventListener('keydown', e => {
     if (e.altKey && e.key === 's') { e.preventDefault(); toggleSidebar(); }
-    if (e.altKey && e.key === 'a') { e.preventDefault(); if (Voice) Voice.toggle(); }
+    if (e.altKey && e.key === 'a') { e.preventDefault(); els.doubaoOrb.click(); }
     if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
     if (e.key === 'Escape') {
       if (!els.settingsModal.classList.contains('hidden')) closeSettings();

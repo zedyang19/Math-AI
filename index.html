@@ -61,29 +61,7 @@
   <div class="orb-ring" id="orbRing"></div>
   <!-- 圆形头像按钮 -->
   <button class="doubao-orb" id="doubaoOrb" title="点击与豆包对话 (Alt+A)">
-    <!-- 豆包风格头像 SVG -->
-    <svg viewBox="0 0 80 80" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <radialGradient id="faceGrad" cx="50%" cy="45%" r="55%">
-          <stop offset="0%" stop-color="#a8d8ff"/>
-          <stop offset="100%" stop-color="#4a9eff"/>
-        </radialGradient>
-      </defs>
-      <!-- 脸 -->
-      <circle cx="40" cy="40" r="36" fill="url(#faceGrad)"/>
-      <!-- 耳朵 -->
-      <circle cx="10" cy="36" r="7" fill="#6ab8ff"/>
-      <circle cx="70" cy="36" r="7" fill="#6ab8ff"/>
-      <!-- 眼睛 -->
-      <ellipse cx="28" cy="34" rx="6" ry="7" fill="white"/>
-      <ellipse cx="52" cy="34" rx="6" ry="7" fill="white"/>
-      <circle cx="29" cy="35" r="3.5" fill="#1a3a6e"/>
-      <circle cx="53" cy="35" r="3.5" fill="#1a3a6e"/>
-      <circle cx="30.5" cy="33" r="1.2" fill="white"/>
-      <circle cx="54.5" cy="33" r="1.2" fill="white"/>
-      <!-- 嘴巴 -->
-      <path d="M30 50 Q40 58 50 50" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-    </svg>
+    <img src="doubao-avatar.png" alt="豆包" class="orb-avatar" draggable="false"/>
   </button>
   <!-- 状态文字 -->
   <div class="orb-label" id="orbLabel">问豆包</div>
