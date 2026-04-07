@@ -1,6 +1,6 @@
 /**
  * 初中数学智能课堂 · 主逻辑
- * 功能：课件导航 + 豆包 AI 对话（流式输出）+ 全屏管理
+ * 功能：课件导航 + 豆包 AI 对话（流式输出）+ 语音输入 + 全屏管理
  */
 
 // =========================================================
@@ -51,6 +51,9 @@ const els = {
   aiSend:         $('aiSend'),
   clearChatBtn:   $('clearChatBtn'),
   quickPrompts:   $('quickPrompts'),
+  micBtn:         $('micBtn'),
+  voiceStatus:    $('voiceStatus'),
+  voiceText:      $('voiceText'),
 };
 
 // =========================================================
@@ -293,6 +296,82 @@ async function sendMessage(userText) {
 }
 
 // =========================================================
+// 语音输入（Web Speech API）
+// =========================================================
+const Voice = (() => {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return null;
+
+  const rec = new SpeechRecognition();
+  rec.lang = 'zh-CN';
+  rec.continuous = false;
+  rec.interimResults = true;
+
+  let isRecording = false;
+  let finalTranscript = '';
+
+  function showStatus(text) {
+    els.voiceStatus.classList.remove('hidden');
+    els.voiceText.textContent = text;
+  }
+  function hideStatus() {
+    els.voiceStatus.classList.add('hidden');
+  }
+
+  rec.onstart = () => {
+    isRecording = true;
+    finalTranscript = '';
+    els.micBtn.classList.add('recording');
+    showStatus('正在聆听，请说话...');
+  };
+
+  rec.onresult = (e) => {
+    let interim = '';
+    finalTranscript = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    // 实时显示识别内容
+    els.aiInput.value = finalTranscript || interim;
+    autoResizeInput();
+    showStatus(interim ? `识别中：${interim}` : '识别完成，松开发送');
+  };
+
+  rec.onend = () => {
+    isRecording = false;
+    els.micBtn.classList.remove('recording');
+    hideStatus();
+    // 有内容就自动发送
+    const text = els.aiInput.value.trim();
+    if (text) {
+      els.aiInput.value = '';
+      autoResizeInput();
+      sendMessage(text);
+    }
+  };
+
+  rec.onerror = (e) => {
+    isRecording = false;
+    els.micBtn.classList.remove('recording');
+    const msg = e.error === 'not-allowed'
+      ? '麦克风权限被拒绝，请在浏览器设置中允许'
+      : `语音识别错误：${e.error}`;
+    showStatus(msg);
+    setTimeout(hideStatus, 3000);
+  };
+
+  return {
+    toggle() {
+      if (isRecording) rec.stop();
+      else rec.start();
+    },
+    stop() { if (isRecording) rec.stop(); },
+    get supported() { return true; },
+  };
+})();
+
+// =========================================================
 // 设置弹窗
 // =========================================================
 function openSettings() {
@@ -406,14 +485,27 @@ function bindEvents() {
   // 全屏
   els.fullscreenBtn.addEventListener('click', toggleFullscreen);
 
+  // 麦克风按钮
+  if (Voice) {
+    els.micBtn.addEventListener('click', () => {
+      if (!State.aiPanelOpen) openAiPanel();
+      Voice.toggle();
+    });
+  } else {
+    els.micBtn.title = '当前浏览器不支持语音识别（请用 Chrome）';
+    els.micBtn.style.opacity = '0.4';
+    els.micBtn.style.cursor = 'not-allowed';
+  }
+
   // 键盘快捷键
   document.addEventListener('keydown', e => {
     if (e.altKey && e.key === 's') { e.preventDefault(); toggleSidebar(); }
     if (e.altKey && e.key === 'a') { e.preventDefault(); State.aiPanelOpen ? closeAiPanel() : openAiPanel(); }
+    if (e.altKey && e.key === 'm') { e.preventDefault(); if (Voice) { if (!State.aiPanelOpen) openAiPanel(); Voice.toggle(); } }
     if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
     if (e.key === 'Escape') {
       if (!els.settingsModal.classList.contains('hidden')) closeSettings();
-      else if (State.aiPanelOpen) closeAiPanel();
+      else if (State.aiPanelOpen) { if (Voice) Voice.stop(); closeAiPanel(); }
     }
   });
 }
