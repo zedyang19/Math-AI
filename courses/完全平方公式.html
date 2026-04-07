@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>完全平方公式</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-page: #f7f6f3;
+    --text: #37352f;
+    --text-secondary: #787774;
+    --text-hint: #acaba8;
+    --border: #e9e9e8;
+    --accent: #2383e2;
+    --accent-bg: #e8f1fb;
+    --red: #e03e3e;
+    --red-bg: #fbe4e4;
+    --green: #0f7b6c;
+    --green-bg: #ddedea;
+    --yellow-bg: #fbf3db;
+    --yellow: #dfab01;
+    --purple-bg: #f4f0ff;
+    --purple: #6940a5;
+    --callout-bg: #f1f1ef;
+    --radius: 6px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "PingFang SC", sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 16px;
+    line-height: 1.7;
+    min-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 96px 120px;
+  }
+
+  /* ===== 顶部 ===== */
+  .page-icon { font-size: 56px; margin-bottom: 12px; }
+  .page-title {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+  .page-meta {
+    font-size: 0.85rem;
+    color: var(--text-hint);
+    margin-bottom: 32px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ===== 文本块 ===== */
+  p { margin-bottom: 6px; color: var(--text-secondary); font-size: 1rem; }
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 36px 0 12px;
+  }
+  h3 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 24px 0 8px;
+  }
+
+  /* ===== Callout ===== */
+  .callout {
+    display: flex;
+    gap: 12px;
+    background: var(--callout-bg);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin: 16px 0;
+    align-items: flex-start;
+  }
+  .callout-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+  .callout-body { font-size: 0.95rem; color: var(--text); line-height: 1.65; }
+  .callout.blue   { background: var(--accent-bg); }
+  .callout.yellow { background: var(--yellow-bg); }
+  .callout.red    { background: var(--red-bg); }
+  .callout.green  { background: var(--green-bg); }
+  .callout.purple { background: var(--purple-bg); }
+
+  /* ===== 公式块 ===== */
+  .formula-block {
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    margin: 20px 0;
+    text-align: center;
+  }
+  .formula {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+    font-family: "Georgia", serif;
+    letter-spacing: 0.5px;
+  }
+  .formula .var-a { color: var(--accent); }
+  .formula .var-b { color: var(--red); }
+  .formula .var-ab { color: var(--green); }
+  .formula-name {
+    font-size: 0.8rem;
+    color: var(--text-hint);
+    margin-top: 8px;
+  }
+
+  /* ===== 分割线 ===== */
+  hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  /* ===== 互动区：几何图形 ===== */
+  .interactive-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  .interactive-header {
+    background: var(--bg-page);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 16px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .interactive-body {
+    background: #fff;
+    padding: 24px;
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  canvas { display: block; }
+
+  /* 控制面板 */
+  .controls { flex: 1; min-width: 200px; }
+  .control-row { margin-bottom: 20px; }
+  .control-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .control-label .val {
+    font-weight: 600;
+    font-size: 1rem;
+  }
+  .val-a { color: var(--accent); }
+  .val-b { color: var(--red); }
+
+  input[type=range] {
+    width: 100%;
+    height: 4px;
+    border-radius: 2px;
+    outline: none;
+    border: none;
+    cursor: pointer;
+  }
+  input[type=range].a-range { accent-color: var(--accent); }
+  input[type=range].b-range { accent-color: var(--red); }
+
+  /* 面积验证表 */
+  .area-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-top: 12px;
+  }
+  .area-table td {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+  .area-table tr:first-child td {
+    background: var(--bg-page);
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+  }
+  .area-table .cell-a2  { color: var(--accent); font-weight: 600; }
+  .area-table .cell-2ab { color: var(--green); font-weight: 600; }
+  .area-table .cell-b2  { color: var(--red); font-weight: 600; }
+  .area-table .cell-sum { color: var(--text); font-weight: 700; }
+
+  /* ===== 步骤推导 ===== */
+  .steps { margin: 12px 0; }
+  .step {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 12px;
+    align-items: flex-start;
+  }
+  .step-num {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--text);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-content { font-size: 0.95rem; color: var(--text); line-height: 1.6; }
+  .step-content .eq {
+    display: inline-block;
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 10px;
+    font-family: "Georgia", serif;
+    font-size: 1rem;
+    margin: 2px 0;
+  }
+
+  /* ===== 练习题 ===== */
+  .exercise-list { margin: 12px 0; }
+  .exercise-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .exercise-q {
+    padding: 12px 16px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+    transition: background 0.1s;
+  }
+  .exercise-q:hover { background: var(--bg-page); }
+  .exercise-q .q-num {
+    font-size: 0.78rem;
+    color: var(--text-hint);
+    font-weight: 600;
+    margin-right: 8px;
+  }
+  .exercise-q .toggle { color: var(--text-hint); font-size: 0.8rem; transition: transform 0.2s; }
+  .exercise-q.open .toggle { transform: rotate(180deg); }
+  .exercise-ans {
+    padding: 12px 16px;
+    background: var(--bg-page);
+    border-top: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--text);
+    display: none;
+    line-height: 1.8;
+  }
+  .exercise-ans.show { display: block; }
+  .ans-tag {
+    display: inline-block;
+    background: var(--green-bg);
+    color: var(--green);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 1px 8px;
+    border-radius: 4px;
+    margin-right: 6px;
+  }
+
+  /* ===== 记忆口诀 ===== */
+  .mnemonic {
+    background: var(--purple-bg);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin: 16px 0;
+    text-align: center;
+  }
+  .mnemonic-text {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--purple);
+    letter-spacing: 1px;
+    line-height: 2;
+  }
+  .mnemonic-sub {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+
+  /* 两栏 */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } .page { padding: 32px 24px 80px; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="page-icon">📐</div>
+  <h1 class="page-title">完全平方公式</h1>
+  <div class="page-meta">初中数学 · 整式运算 · 约 15 分钟</div>
+
+  <p>完全平方公式是整式乘法中最重要的公式之一，描述了<strong>两数之和（或差）的平方</strong>展开后的规律。</p>
+
+  <hr/>
+
+  <!-- 公式展示 -->
+  <h2>📌 核心公式</h2>
+
+  <div class="two-col">
+    <div class="formula-block">
+      <div class="formula">
+        (<span class="var-a">a</span> + <span class="var-b">b</span>)²
+        &nbsp;=&nbsp;
+        <span class="var-a">a²</span> + <span class="var-ab">2ab</span> + <span class="var-b">b²</span>
+      </div>
+      <div class="formula-name">完全平方和公式</div>
+    </div>
+    <div class="formula-block">
+      <div class="formula">
+        (<span class="var-a">a</span> − <span class="var-b">b</span>)²
+        &nbsp;=&nbsp;
+        <span class="var-a">a²</span> − <span class="var-ab">2ab</span> + <span class="var-b">b²</span>
+      </div>
+      <div class="formula-name">完全平方差公式</div>
+    </div>
+  </div>
+
+  <div class="callout blue">
+    <span class="callout-icon">💡</span>
+    <div class="callout-body">
+      两个公式的结构完全相同，唯一的区别是中间项 <strong>2ab</strong> 的符号：
+      和的平方取 <strong>+</strong>，差的平方取 <strong>−</strong>。
+    </div>
+  </div>
+
+  <hr/>
+
+  <!-- 几何直观 -->
+  <h2>🔲 几何直观：为什么等于这三项？</h2>
+  <p>拖动下方滑块，观察正方形面积的分割方式，理解公式的几何含义。</p>
+
+  <div class="interactive-wrap">
+    <div class="interactive-header">
+      ✦ 互动演示 &nbsp;·&nbsp; (a + b)² 的几何解释
+    </div>
+    <div class="interactive-body">
+      <canvas id="geoCanvas" width="300" height="300"></canvas>
+      <div class="controls">
+        <div class="control-row">
+          <div class="control-label">
+            <span><span style="color:var(--accent)">■</span> 边长 a</span>
+            <span class="val val-a" id="valA">3</span>
+          </div>
+          <input type="range" class="a-range" id="sliderA" min="1" max="7" step="0.5" value="3"/>
+        </div>
+        <div class="control-row">
+          <div class="control-label">
+            <span><span style="color:var(--red)">■</span> 边长 b</span>
+            <span class="val val-b" id="valB">2</span>
+          </div>
+          <input type="range" class="b-range" id="sliderB" min="1" max="7" step="0.5" value="2"/>
+        </div>
+
+        <table class="area-table">
+          <tr><td>色块</td><td>含义</td><td>面积</td></tr>
+          <tr><td>🟦 蓝色</td><td>a²</td><td class="cell-a2" id="cellA2">9</td></tr>
+          <tr><td>🟩 绿色</td><td>2ab</td><td class="cell-2ab" id="cell2ab">12</td></tr>
+          <tr><td>🟥 红色</td><td>b²</td><td class="cell-b2" id="cellB2">4</td></tr>
+          <tr><td colspan="2"><strong>(a+b)²</strong></td><td class="cell-sum" id="cellSum">25</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <hr/>
+
+  <!-- 推导过程 -->
+  <h2>✏️ 代数推导</h2>
+  <p>用多项式乘法来严格证明公式：</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        把平方展开为两个括号相乘<br/>
+        <span class="eq">(a + b)² = (a + b)(a + b)</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        用分配律展开（每一项都要乘）<br/>
+        <span class="eq">= a·a + a·b + b·a + b·b</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        合并同类项（a·b 和 b·a 相同）<br/>
+        <span class="eq">= a² + 2ab + b²</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout yellow">
+    <span class="callout-icon">⚠️</span>
+    <div class="callout-body">
+      <strong>常见错误：</strong>(a + b)² ≠ a² + b²<br/>
+      漏掉中间的 <strong>2ab</strong> 项是最典型的错误，几何图上的两个绿色矩形就是这一项！
+    </div>
+  </div>
+
+  <hr/>
+
+  <!-- 记忆口诀 -->
+  <h2>🧠 记忆口诀</h2>
+  <div class="mnemonic">
+    <div class="mnemonic-text">
+      首平方，尾平方<br/>
+      2 倍首尾放中间<br/>
+      符号与括号里相同
+    </div>
+    <div class="mnemonic-sub">适用于 (a ± b)² 的展开</div>
+  </div>
+
+  <hr/>
+
+  <!-- 例题 -->
+  <h2>📝 例题讲解</h2>
+
+  <h3>例 1 &nbsp;展开 (x + 3)²</h3>
+  <div class="callout">
+    <span class="callout-icon">📖</span>
+    <div class="callout-body">
+      令 a = x，b = 3，代入公式：<br/>
+      (x + 3)² = x² + 2 × x × 3 + 3² = <strong>x² + 6x + 9</strong>
+    </div>
+  </div>
+
+  <h3>例 2 &nbsp;展开 (2x − 5)²</h3>
+  <div class="callout">
+    <span class="callout-icon">📖</span>
+    <div class="callout-body">
+      令 a = 2x，b = 5，用差的平方公式：<br/>
+      (2x − 5)² = (2x)² − 2 × 2x × 5 + 5² = <strong>4x² − 20x + 25</strong>
+    </div>
+  </div>
+
+  <h3>例 3 &nbsp;计算 99²（活用公式）</h3>
+  <div class="callout green">
+    <span class="callout-icon">✨</span>
+    <div class="callout-body">
+      把 99 写成 (100 − 1)，然后用差的平方：<br/>
+      99² = (100 − 1)² = 100² − 2×100×1 + 1² = 10000 − 200 + 1 = <strong>9801</strong>
+    </div>
+  </div>
+
+  <hr/>
+
+  <!-- 练习题 -->
+  <h2>🏋️ 课堂练习</h2>
+  <p>点击题目展开答案，先自己做再对答案。</p>
+
+  <div class="exercise-list">
+    <div class="exercise-item">
+      <div class="exercise-q" onclick="toggleAns(this)">
+        <span><span class="q-num">01</span>展开 (a + 4)²</span>
+        <span class="toggle">▼</span>
+      </div>
+      <div class="exercise-ans">
+        <span class="ans-tag">答案</span>
+        (a + 4)² = a² + 2×a×4 + 4² = <strong>a² + 8a + 16</strong>
+      </div>
+    </div>
+    <div class="exercise-item">
+      <div class="exercise-q" onclick="toggleAns(this)">
+        <span><span class="q-num">02</span>展开 (3x − 2)²</span>
+        <span class="toggle">▼</span>
+      </div>
+      <div class="exercise-ans">
+        <span class="ans-tag">答案</span>
+        (3x − 2)² = (3x)² − 2×3x×2 + 2² = <strong>9x² − 12x + 4</strong>
+      </div>
+    </div>
+    <div class="exercise-item">
+      <div class="exercise-q" onclick="toggleAns(this)">
+        <span><span class="q-num">03</span>计算 101²</span>
+        <span class="toggle">▼</span>
+      </div>
+      <div class="exercise-ans">
+        <span class="ans-tag">答案</span>
+        101² = (100 + 1)² = 100² + 2×100×1 + 1² = 10000 + 200 + 1 = <strong>10201</strong>
+      </div>
+    </div>
+    <div class="exercise-item">
+      <div class="exercise-q" onclick="toggleAns(this)">
+        <span><span class="q-num">04</span>若 a + b = 5，ab = 3，求 a² + b²</span>
+        <span class="toggle">▼</span>
+      </div>
+      <div class="exercise-ans">
+        <span class="ans-tag">答案</span>
+        由公式知：(a+b)² = a² + 2ab + b²<br/>
+        所以 a² + b² = (a+b)² − 2ab = 5² − 2×3 = 25 − 6 = <strong>19</strong>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ===== 几何画布 =====
+const canvas = document.getElementById('geoCanvas');
+const ctx = canvas.getContext('2d');
+let a = 3, b = 2;
+
+const COLORS = {
+  a2:  { fill: 'rgba(35,131,226,0.15)', stroke: '#2383e2' },
+  ab:  { fill: 'rgba(15,123,108,0.15)', stroke: '#0f7b6c' },
+  b2:  { fill: 'rgba(224,62,62,0.15)',  stroke: '#e03e3e' },
+};
+
+function draw() {
+  const S = canvas.width;
+  const PAD = 30;
+  const total = a + b;
+  const unit = (S - PAD * 2) / (total + 0.5);
+
+  ctx.clearRect(0, 0, S, S);
+
+  const ox = PAD, oy = PAD;
+  const aw = a * unit, bw = b * unit;
+
+  // a² 蓝色
+  fillRect(ox, oy, aw, aw, COLORS.a2);
+  // ab 右上 绿色
+  fillRect(ox + aw, oy, bw, aw, COLORS.ab);
+  // ab 左下 绿色
+  fillRect(ox, oy + aw, aw, bw, COLORS.ab);
+  // b² 红色
+  fillRect(ox + aw, oy + aw, bw, bw, COLORS.b2);
+
+  // 外边框
+  ctx.strokeStyle = '#37352f';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(ox, oy, aw + bw, aw + bw);
+
+  // 分隔线
+  ctx.strokeStyle = '#37352f';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.moveTo(ox + aw, oy); ctx.lineTo(ox + aw, oy + aw + bw); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox, oy + aw); ctx.lineTo(ox + aw + bw, oy + aw); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 标注
+  ctx.font = 'bold 13px -apple-system, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  ctx.fillStyle = '#2383e2';
+  ctx.fillText(`a²`, ox + aw/2, oy + aw/2);
+  ctx.fillStyle = '#0f7b6c';
+  ctx.fillText(`ab`, ox + aw + bw/2, oy + aw/2);
+  ctx.fillText(`ab`, ox + aw/2, oy + aw + bw/2);
+  ctx.fillStyle = '#e03e3e';
+  ctx.fillText(`b²`, ox + aw + bw/2, oy + aw + bw/2);
+
+  // 尺寸标注
+  ctx.fillStyle = '#787774'; ctx.font = '12px sans-serif';
+  ctx.fillText('a', ox + aw/2, oy - 14);
+  ctx.fillText('b', ox + aw + bw/2, oy - 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('a', ox - 10, oy + aw/2);
+  ctx.fillText('b', ox - 10, oy + aw + bw/2);
+
+  // 更新表格
+  document.getElementById('cellA2').textContent  = (a*a).toFixed(1).replace(/\.0$/,'');
+  document.getElementById('cell2ab').textContent = (2*a*b).toFixed(1).replace(/\.0$/,'');
+  document.getElementById('cellB2').textContent  = (b*b).toFixed(1).replace(/\.0$/,'');
+  document.getElementById('cellSum').textContent = ((a+b)*(a+b)).toFixed(1).replace(/\.0$/,'');
+}
+
+function fillRect(x, y, w, h, c) {
+  ctx.fillStyle = c.fill;
+  ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = c.stroke;
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x, y, w, h);
+}
+
+document.getElementById('sliderA').addEventListener('input', e => {
+  a = parseFloat(e.target.value);
+  document.getElementById('valA').textContent = a;
+  draw();
+});
+document.getElementById('sliderB').addEventListener('input', e => {
+  b = parseFloat(e.target.value);
+  document.getElementById('valB').textContent = b;
+  draw();
+});
+
+draw();
+
+// ===== 练习题折叠 =====
+function toggleAns(el) {
+  el.classList.toggle('open');
+  el.nextElementSibling.classList.toggle('show');
+}
+</script>
+</body>
+</html>

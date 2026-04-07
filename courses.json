@@ -1,23 +1,8 @@
 [
   {
-    "title": "第一章 · 整式与方程",
+    "title": "第一章 · 整式运算",
     "items": [
-      { "title": "整式的加减", "src": "courses/01-整式加减.html", "icon": "➕" },
-      { "title": "一元一次方程", "src": "courses/02-一元一次方程.html", "icon": "🔢" }
-    ]
-  },
-  {
-    "title": "第二章 · 函数",
-    "items": [
-      { "title": "函数图像探究（互动）", "src": "courses/03-函数图像.html", "icon": "📈" },
-      { "title": "一次函数", "src": "courses/04-一次函数.html", "icon": "📉" }
-    ]
-  },
-  {
-    "title": "第三章 · 几何",
-    "items": [
-      { "title": "三角形全等判定", "src": "courses/05-三角形全等.html", "icon": "🔺" },
-      { "title": "勾股定理", "src": "courses/06-勾股定理.html", "icon": "📐" }
+      { "title": "完全平方公式", "src": "courses/完全平方公式.html", "icon": "📐" }
     ]
   }
 ]
