@@ -30,32 +30,22 @@ const Settings = {
 const $ = id => document.getElementById(id);
 
 const els = {
-  sidebar:        $('sidebar'),
-  sidebarToggle:  $('sidebarToggle'),
-  courseList:     $('courseList'),
-  placeholder:    $('placeholder'),
-  courseFrame:    $('courseFrame'),
-  fullscreenBtn:  $('fullscreenBtn'),
-  settingsBtn:    $('settingsBtn'),
-  settingsModal:  $('settingsModal'),
-  settingsClose:  $('settingsClose'),
-  settingsSave:   $('settingsSave'),
-  apiKeyInput:    $('apiKeyInput'),
-  modelInput:     $('modelInput'),
+  sidebar:           $('sidebar'),
+  sidebarToggle:     $('sidebarToggle'),
+  courseList:        $('courseList'),
+  placeholder:       $('placeholder'),
+  courseFrame:       $('courseFrame'),
+  fullscreenBtn:     $('fullscreenBtn'),
+  settingsBtn:       $('settingsBtn'),
+  settingsModal:     $('settingsModal'),
+  settingsClose:     $('settingsClose'),
+  settingsSave:      $('settingsSave'),
+  apiKeyInput:       $('apiKeyInput'),
+  modelInput:        $('modelInput'),
   systemPromptInput: $('systemPromptInput'),
-  aiFab:          $('aiFab'),
-  aiPanel:        $('aiPanel'),
-  aiPanelClose:   $('aiPanelClose'),
-  aiMessages:     $('aiMessages'),
-  aiInput:        $('aiInput'),
-  aiSend:         $('aiSend'),
-  clearChatBtn:   $('clearChatBtn'),
-  quickPrompts:   $('quickPrompts'),
-  micBtn:         $('micBtn'),
-  voiceStatus:    $('voiceStatus'),
-  voiceText:      $('voiceText'),
-  ttsToggleBtn:   $('ttsToggleBtn'),
-  ttsIcon:        $('ttsIcon'),
+  doubaoOrb:         $('doubaoOrb'),
+  orbRing:           $('orbRing'),
+  orbLabel:          $('orbLabel'),
 };
 
 // =========================================================
@@ -113,53 +103,18 @@ function toggleSidebar() {
 }
 
 // =========================================================
-// AI 面板开关
+// 圆形头像状态管理
 // =========================================================
-function openAiPanel() {
-  State.aiPanelOpen = true;
-  els.aiFab.classList.add('hidden');
-  els.aiPanel.classList.remove('hidden');
-  setTimeout(() => els.aiInput.focus(), 50);
-}
-
-function closeAiPanel() {
-  State.aiPanelOpen = false;
-  els.aiPanel.classList.add('hidden');
-  els.aiFab.classList.remove('hidden');
+function setOrbState(state) {
+  const labels = { idle:'问豆包', listening:'正在聆听…', thinking:'思考中…', speaking:'正在回答…' };
+  els.doubaoOrb.className = 'doubao-orb' + (state !== 'idle' ? ` ${state}` : '');
+  els.orbRing.className   = 'orb-ring'   + (state !== 'idle' ? ` ${state}` : '');
+  els.orbLabel.textContent = labels[state] || '问豆包';
 }
 
 // =========================================================
 // AI 对话（豆包 API，兼容 OpenAI 格式）
 // =========================================================
-function appendMessage(role, html, streaming = false) {
-  const wrap = document.createElement('div');
-  wrap.className = `message ${role === 'user' ? 'user-message' : 'ai-message'}`;
-  const content = document.createElement('div');
-  content.className = 'message-content';
-  content.innerHTML = html;
-  wrap.appendChild(content);
-  els.aiMessages.appendChild(wrap);
-  els.aiMessages.scrollTop = els.aiMessages.scrollHeight;
-  return content;
-}
-
-function showTyping() {
-  const wrap = document.createElement('div');
-  wrap.className = 'message ai-message typing-indicator';
-  wrap.innerHTML = `<div class="message-content">
-    <span class="typing-dot"></span>
-    <span class="typing-dot"></span>
-    <span class="typing-dot"></span>
-  </div>`;
-  els.aiMessages.appendChild(wrap);
-  els.aiMessages.scrollTop = els.aiMessages.scrollHeight;
-  return wrap;
-}
-
-function removeTyping() {
-  const indicator = els.aiMessages.querySelector('.typing-indicator');
-  if (indicator) indicator.remove();
-}
 
 function escapeHtml(text) {
   return text
@@ -213,14 +168,9 @@ async function sendMessage(userText) {
     return;
   }
 
-  // 显示用户消息
-  appendMessage('user', escapeHtml(userText));
   State.chatHistory.push({ role: 'user', content: userText });
-
-  // 显示打字动画
-  const typing = showTyping();
   State.isStreaming = true;
-  els.aiSend.disabled = true;
+  setOrbState('thinking');
 
   // 构造消息列表（带 system prompt）
   const messages = [
@@ -251,10 +201,6 @@ async function sendMessage(userText) {
       throw new Error(`API 错误 ${response.status}: ${err}`);
     }
 
-    // 移除打字动画，创建 AI 消息气泡
-    typing.remove();
-    aiContentEl = appendMessage('assistant', '');
-
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
 
@@ -271,31 +217,22 @@ async function sendMessage(userText) {
         try {
           const json = JSON.parse(data);
           const delta = json.choices?.[0]?.delta?.content || '';
-          if (delta) {
-            fullText += delta;
-            aiContentEl.innerHTML = renderMarkdown(fullText);
-            els.aiMessages.scrollTop = els.aiMessages.scrollHeight;
-          }
+          if (delta) fullText += delta;
         } catch { /* 忽略解析错误 */ }
       }
     }
 
     State.chatHistory.push({ role: 'assistant', content: fullText });
-    // 回复完成后朗读
-    if (TTS && aiContentEl) TTS.speak(aiContentEl.innerHTML);
+    // 朗读回复
+    setOrbState('speaking');
+    TTS.speak(fullText, () => setOrbState('idle'));
 
   } catch (err) {
-    typing.remove();
-    if (aiContentEl) {
-      aiContentEl.innerHTML = `<span style="color:#ff6b6b">请求失败：${escapeHtml(err.message)}</span>`;
-    } else {
-      appendMessage('assistant', `<span style="color:#ff6b6b">请求失败：${escapeHtml(err.message)}</span>`);
-    }
+    setOrbState('idle');
+    showToast(`请求失败：${err.message.slice(0, 40)}`);
     console.error('AI 请求失败:', err);
   } finally {
     State.isStreaming = false;
-    els.aiSend.disabled = false;
-    els.aiInput.focus();
   }
 }
 
@@ -303,75 +240,49 @@ async function sendMessage(userText) {
 // 语音输入（Web Speech API）
 // =========================================================
 const Voice = (() => {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) return null;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
 
-  const rec = new SpeechRecognition();
+  const rec = new SR();
   rec.lang = 'zh-CN';
   rec.continuous = false;
   rec.interimResults = true;
 
-  let isRecording = false;
-  let finalTranscript = '';
-
-  function showStatus(text) {
-    els.voiceStatus.classList.remove('hidden');
-    els.voiceText.textContent = text;
-  }
-  function hideStatus() {
-    els.voiceStatus.classList.add('hidden');
-  }
+  let active = false;
+  let transcript = '';
 
   rec.onstart = () => {
-    isRecording = true;
-    finalTranscript = '';
-    els.micBtn.classList.add('recording');
-    showStatus('正在聆听，请说话...');
+    active = true;
+    transcript = '';
+    setOrbState('listening');
   };
 
   rec.onresult = (e) => {
-    let interim = '';
-    finalTranscript = '';
+    transcript = '';
     for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript;
-      else interim += e.results[i][0].transcript;
+      if (e.results[i].isFinal) transcript += e.results[i][0].transcript;
     }
-    // 实时显示识别内容
-    els.aiInput.value = finalTranscript || interim;
-    autoResizeInput();
-    showStatus(interim ? `识别中：${interim}` : '识别完成，松开发送');
   };
 
   rec.onend = () => {
-    isRecording = false;
-    els.micBtn.classList.remove('recording');
-    hideStatus();
-    // 有内容就自动发送
-    const text = els.aiInput.value.trim();
-    if (text) {
-      els.aiInput.value = '';
-      autoResizeInput();
-      sendMessage(text);
+    active = false;
+    if (transcript.trim()) {
+      sendMessage(transcript.trim());
+    } else {
+      setOrbState('idle');
     }
   };
 
   rec.onerror = (e) => {
-    isRecording = false;
-    els.micBtn.classList.remove('recording');
-    const msg = e.error === 'not-allowed'
-      ? '麦克风权限被拒绝，请在浏览器设置中允许'
-      : `语音识别错误：${e.error}`;
-    showStatus(msg);
-    setTimeout(hideStatus, 3000);
+    active = false;
+    setOrbState('idle');
+    const msg = e.error === 'not-allowed' ? '麦克风权限被拒绝，请允许浏览器使用麦克风' : `语音识别错误：${e.error}`;
+    showToast(msg);
   };
 
   return {
-    toggle() {
-      if (isRecording) rec.stop();
-      else rec.start();
-    },
-    stop() { if (isRecording) rec.stop(); },
-    get supported() { return true; },
+    toggle() { active ? rec.stop() : rec.start(); },
+    stop()   { if (active) rec.stop(); },
   };
 })();
 
@@ -380,19 +291,12 @@ const Voice = (() => {
 // =========================================================
 const TTS = (() => {
   const synth = window.speechSynthesis;
-  if (!synth) return null;
+  if (!synth) return { speak() {}, stop() {} };
 
-  let enabled = localStorage.getItem('tts_enabled') === 'true';
-  let speaking = false;
-
-  // 去除 HTML 标签和 LaTeX，只保留纯文本朗读
-  function cleanText(html) {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    let text = tmp.textContent || tmp.innerText || '';
-    // 去除 LaTeX 残留符号
-    text = text.replace(/\$\$?[\s\S]*?\$\$?/g, '，公式略，');
+  function cleanText(text) {
+    text = text.replace(/\$\$?[\s\S]*?\$\$?/g, '公式');
     text = text.replace(/\\[a-zA-Z]+\{[^}]*\}/g, '');
+    text = text.replace(/[#*`>]/g, '');
     return text.trim();
   }
 
@@ -406,58 +310,25 @@ const TTS = (() => {
     );
   }
 
-  function speak(html) {
-    if (!enabled) return;
-    synth.cancel(); // 停止上一条
-    const text = cleanText(html);
-    if (!text) return;
+  function speak(text, onEnd) {
+    synth.cancel();
+    const clean = cleanText(text);
+    if (!clean) { onEnd?.(); return; }
 
-    const utter = new SpeechSynthesisUtterance(text);
+    const utter = new SpeechSynthesisUtterance(clean);
     utter.lang = 'zh-CN';
-    utter.rate = 0.95;
+    utter.rate = 1.0;
     utter.pitch = 1;
     const voice = getChineseVoice();
     if (voice) utter.voice = voice;
-
-    utter.onstart = () => { speaking = true; updateIcon(); };
-    utter.onend = () => { speaking = false; updateIcon(); };
-    utter.onerror = () => { speaking = false; updateIcon(); };
+    utter.onend   = () => onEnd?.();
+    utter.onerror = () => onEnd?.();
     synth.speak(utter);
   }
 
-  function stop() {
-    synth.cancel();
-    speaking = false;
-    updateIcon();
-  }
+  function stop() { synth.cancel(); }
 
-  function toggle() {
-    enabled = !enabled;
-    localStorage.setItem('tts_enabled', enabled);
-    if (!enabled) stop();
-    updateIcon();
-    showToast(enabled ? '语音朗读已开启' : '语音朗读已关闭');
-  }
-
-  function updateIcon() {
-    if (!els.ttsToggleBtn) return;
-    if (enabled) {
-      els.ttsToggleBtn.style.color = speaking ? '#4a9eff' : '#4a9eff';
-      els.ttsToggleBtn.title = '语音朗读已开启，点击关闭 (Alt+T)';
-      els.ttsToggleBtn.style.opacity = '1';
-    } else {
-      els.ttsToggleBtn.style.color = '';
-      els.ttsToggleBtn.title = '语音朗读已关闭，点击开启 (Alt+T)';
-      els.ttsToggleBtn.style.opacity = '0.4';
-    }
-  }
-
-  // 等 voices 加载后初始化图标
-  if (synth.onvoiceschanged !== undefined) {
-    synth.onvoiceschanged = updateIcon;
-  }
-
-  return { speak, stop, toggle, updateIcon, get enabled() { return enabled; } };
+  return { speak, stop };
 })();
 
 // =========================================================
@@ -586,33 +457,23 @@ function bindEvents() {
     els.micBtn.style.cursor = 'not-allowed';
   }
 
-  // TTS 开关按钮
-  if (TTS) {
-    els.ttsToggleBtn.addEventListener('click', () => TTS.toggle());
-    setTimeout(() => TTS.updateIcon(), 500); // voices 异步加载
-  } else {
-    els.ttsToggleBtn.style.opacity = '0.3';
-    els.ttsToggleBtn.title = '当前浏览器不支持语音朗读';
-    els.ttsToggleBtn.style.cursor = 'not-allowed';
-  }
+  // 圆形头像按钮 → 点击开始/停止语音
+  els.doubaoOrb.addEventListener('click', () => {
+    if (State.isStreaming) { TTS.stop(); setOrbState('idle'); return; }
+    if (!Voice) { showToast('当前浏览器不支持语音识别，请用 Edge 或 Chrome'); return; }
+    Voice.toggle();
+  });
 
   // 键盘快捷键
   document.addEventListener('keydown', e => {
     if (e.altKey && e.key === 's') { e.preventDefault(); toggleSidebar(); }
-    if (e.altKey && e.key === 'a') { e.preventDefault(); State.aiPanelOpen ? closeAiPanel() : openAiPanel(); }
-    if (e.altKey && e.key === 'm') { e.preventDefault(); if (Voice) { if (!State.aiPanelOpen) openAiPanel(); Voice.toggle(); } }
-    if (e.altKey && e.key === 't') { e.preventDefault(); if (TTS) TTS.toggle(); }
+    if (e.altKey && e.key === 'a') { e.preventDefault(); if (Voice) Voice.toggle(); }
     if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
     if (e.key === 'Escape') {
       if (!els.settingsModal.classList.contains('hidden')) closeSettings();
-      else if (State.aiPanelOpen) { if (Voice) Voice.stop(); if (TTS) TTS.stop(); closeAiPanel(); }
+      else { Voice?.stop(); TTS.stop(); setOrbState('idle'); }
     }
   });
-}
-
-function autoResizeInput() {
-  els.aiInput.style.height = 'auto';
-  els.aiInput.style.height = Math.min(els.aiInput.scrollHeight, 120) + 'px';
 }
 
 // =========================================================
