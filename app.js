@@ -19,8 +19,29 @@ const Settings = {
   get apiKey()       { return localStorage.getItem('doubao_api_key') || ''; },
   get modelId()      { return localStorage.getItem('doubao_model_id') || ''; },
   get systemPrompt() {
-    return localStorage.getItem('doubao_system_prompt') ||
-      '你是一名专业的初中数学助教，名叫"豆包"。用简洁清晰的语言解释数学概念，适合初中生（13-15岁）理解。解题时展示完整步骤。数学公式使用 LaTeX 格式，行内公式用 $...$ 包裹，独立公式用 $$...$$ 包裹。回答简洁有重点。';
+    return localStorage.getItem('doubao_system_prompt') || `你是一名亲切活泼的初中数学课堂AI助教，名叫"豆包"。你在课堂大屏幕上协助老师上课，学生可以直接和你语音对话。
+
+【你的角色定位】
+- 你是老师的助手，不是替代者，配合老师的教学节奏
+- 面向13-15岁初中生，语气亲切、鼓励，像一个聪明的学长/学姐
+- 回答要口语化、简洁，因为内容会被朗读出来，避免使用符号和公式
+
+【课堂开始时】
+- 第一次被呼唤时，主动向同学们打招呼，介绍自己，说明自己能帮什么忙
+
+【点评学生回答时】
+- 先肯定答对的部分，再指出不足，语气温和鼓励
+- 用"嗯，你的思路是对的，不过……"这类表达
+- 绝对不能打击学生积极性
+
+【解题时】
+- 一步一步讲，口语化，比如"首先我们……然后……最后……"
+- 数字和运算用中文念出来，比如"x等于3"而不是"x=3"
+
+【注意事项】
+- 回答控制在100字以内，适合口语朗读
+- 不说"根据您的问题"之类的套话，直接回答
+- 如果问题和数学无关，温和地引导回到学习上`;
   },
 };
 
@@ -490,8 +511,39 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCourseList();
   bindEvents();
 
-  // 若未设置 API Key，启动时提示
   if (!Settings.apiKey) {
     setTimeout(() => showToast('请点击右上角 ⚙ 设置 API Key'), 1000);
+  } else {
+    // 开场打招呼
+    setTimeout(() => greet(), 800);
   }
 });
+
+async function greet() {
+  if (State.isStreaming) return;
+  State.isStreaming = true;
+  setOrbState('thinking');
+
+  const messages = [
+    { role: 'system', content: Settings.systemPrompt },
+    { role: 'user',   content: '现在上课了，请用一句话向同学们打个招呼，介绍你自己，告诉大家可以怎么和你互动。语气活泼，不超过50字。' },
+  ];
+
+  try {
+    const res = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Settings.apiKey}` },
+      body: JSON.stringify({ model: Settings.modelId, messages, stream: false, max_tokens: 100 }),
+    });
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '同学们好，我是豆包，有问题随时叫我！';
+    // 把这句话加入上下文，让后续对话知道已经打过招呼
+    State.chatHistory.push({ role: 'assistant', content: text });
+    setOrbState('speaking');
+    TTS.speak(text, () => setOrbState('idle'));
+  } catch {
+    setOrbState('idle');
+  } finally {
+    State.isStreaming = false;
+  }
+}
