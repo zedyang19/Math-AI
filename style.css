@@ -1,0 +1,552 @@
+/* =============================================
+   初中数学智能课堂 · 样式表
+   针对大屏投影优化（1080p / 1920×1080）
+   ============================================= */
+
+:root {
+  --bg: #0f1117;
+  --bg-surface: #1a1d27;
+  --bg-surface2: #22263a;
+  --border: #2e3350;
+  --accent: #4a9eff;
+  --accent-dim: #1e3a5f;
+  --text-primary: #e8eaf0;
+  --text-secondary: #8b91a8;
+  --text-hint: #5a607a;
+  --sidebar-w: 260px;
+  --topbar-h: 56px;
+  --ai-panel-w: 420px;
+  --ai-panel-h: 560px;
+  --radius: 10px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-size: 16px;
+  overflow: hidden;
+}
+
+/* ===== 顶部导航栏 ===== */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--topbar-h);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+.topbar-title {
+  flex: 1;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ===== 按钮基础样式 ===== */
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-icon:hover { background: var(--bg-surface2); color: var(--text-primary); }
+.btn-icon svg { width: 22px; height: 22px; fill: currentColor; }
+.btn-icon.sm svg { width: 18px; height: 18px; }
+
+.btn-text {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-text:hover { background: var(--bg-surface2); color: var(--text-primary); }
+
+.btn-primary {
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 10px 24px;
+  border-radius: 8px;
+  transition: opacity 0.15s;
+}
+.btn-primary:hover { opacity: 0.85; }
+
+/* ===== 主体布局 ===== */
+.main-layout {
+  position: fixed;
+  top: var(--topbar-h);
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+}
+
+/* ===== 侧边栏 ===== */
+.sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.25s ease, opacity 0.25s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar-header {
+  padding: 14px 16px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-hint);
+  border-bottom: 1px solid var(--border);
+}
+
+.course-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+.course-list::-webkit-scrollbar { width: 4px; }
+.course-list::-webkit-scrollbar-track { background: transparent; }
+.course-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* 章节标题 */
+.course-chapter {
+  padding: 10px 16px 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+/* 课件条目 */
+.course-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 0.12s;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  border-left: 3px solid transparent;
+}
+.course-item:hover { background: var(--bg-surface2); color: var(--text-primary); }
+.course-item.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-left-color: var(--accent);
+}
+.course-item-icon {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+/* ===== 课件展示区 ===== */
+.content-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.course-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-inner {
+  text-align: center;
+  color: var(--text-hint);
+}
+.placeholder-inner p {
+  margin-top: 16px;
+  font-size: 1.1rem;
+}
+.placeholder-inner .hint {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: var(--bg-surface2);
+  color: var(--text-secondary);
+}
+
+.course-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+.hidden { display: none !important; }
+
+/* ===== 豆包悬浮按钮 ===== */
+.ai-fab {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  background: linear-gradient(135deg, #4a9eff 0%, #6c63ff 100%);
+  color: #fff;
+  border-radius: 50px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(74,158,255,0.4);
+  z-index: 200;
+  transition: transform 0.15s, box-shadow 0.15s;
+  user-select: none;
+}
+.ai-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(74,158,255,0.5);
+}
+.fab-label {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.ai-fab.hidden { display: none !important; }
+
+/* ===== AI 对话面板 ===== */
+.ai-panel {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: var(--ai-panel-w);
+  height: var(--ai-panel-h);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  overflow: hidden;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.ai-panel.hidden {
+  opacity: 0;
+  transform: scale(0.95) translateY(10px);
+  pointer-events: none;
+}
+
+.ai-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface2);
+}
+.ai-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.ai-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 消息列表 */
+.ai-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ai-messages::-webkit-scrollbar { width: 4px; }
+.ai-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.message {
+  display: flex;
+  flex-direction: column;
+  max-width: 88%;
+}
+.user-message { align-self: flex-end; }
+.ai-message { align-self: flex-start; }
+
+.message-content {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  word-break: break-word;
+}
+.user-message .message-content {
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.ai-message .message-content {
+  background: var(--bg-surface2);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+/* 打字动画 */
+.typing-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  margin: 0 2px;
+  animation: blink 1.2s infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* 快捷指令 */
+.quick-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.quick-btn {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  padding: 5px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.quick-btn:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* 输入区 */
+.ai-input-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  align-items: flex-end;
+}
+.ai-input {
+  flex: 1;
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: none;
+  max-height: 120px;
+  overflow-y: auto;
+  transition: border-color 0.15s;
+  line-height: 1.5;
+}
+.ai-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.ai-input::placeholder { color: var(--text-hint); }
+
+.btn-send {
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+.btn-send:hover { opacity: 0.85; }
+.btn-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ===== 设置弹窗 ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 520px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h2 { font-size: 1.1rem; font-weight: 600; }
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.modal-body label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.modal-body input, .modal-body textarea {
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+.modal-body input:focus, .modal-body textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.modal-hint {
+  font-size: 0.8rem;
+  color: var(--text-hint);
+  line-height: 1.6;
+}
+.modal-hint code {
+  background: var(--bg-surface2);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ===== Toast 提示 ===== */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: var(--bg-surface2);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  z-index: 400;
+  opacity: 1;
+  transition: opacity 0.3s, transform 0.3s;
+  pointer-events: none;
+}
+.toast.hide {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+}
+
+/* ===== KaTeX 公式适配 ===== */
+.message-content .katex-display {
+  margin: 8px 0;
+  overflow-x: auto;
+}
+.user-message .message-content .katex { color: #fff; }
+
+/* ===== 全屏模式 ===== */
+body.fullscreen .topbar { display: none; }
+body.fullscreen .main-layout { top: 0; }
+body.fullscreen .sidebar { display: none; }
+body.fullscreen .ai-fab { bottom: 20px; right: 20px; }
+body.fullscreen .ai-panel { bottom: 20px; right: 20px; }
+
+/* ===== 加载状态 ===== */
+.loading-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: var(--accent);
+  width: 0%;
+  z-index: 500;
+  transition: width 0.3s;
+}

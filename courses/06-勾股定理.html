@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>勾股定理</title>
+<style>
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'PingFang SC','Microsoft YaHei',sans-serif; background:#f7f9fc; color:#1a1a2e; height:100vh; display:flex; flex-direction:column; overflow:hidden; }
+  header { background:#1a1d27; color:#e8eaf0; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:1.2rem; }
+  .badge { background:#4a9eff; color:#fff; font-size:0.75rem; padding:3px 10px; border-radius:20px; }
+
+  .main { flex:1; display:flex; gap:0; overflow:hidden; }
+
+  .canvas-wrap { flex:1; display:flex; align-items:center; justify-content:center; background:#fff; position:relative; }
+  canvas { max-width:100%; max-height:100%; }
+
+  .panel { width:320px; flex-shrink:0; background:#f7f9fc; border-left:1px solid #dde3ee; padding:20px 18px; display:flex; flex-direction:column; gap:16px; overflow-y:auto; }
+
+  h2 { font-size:0.82rem; font-weight:700; color:#6c7a9c; letter-spacing:1px; text-transform:uppercase; }
+
+  .formula-big {
+    background:#1a1d27; color:#4a9eff; border-radius:12px;
+    padding:18px; font-size:1.6rem; text-align:center;
+    font-family:'Courier New',monospace; letter-spacing:2px;
+  }
+  .formula-big .super { font-size:1rem; vertical-align:super; }
+
+  .values-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .val-card { background:#fff; border:2px solid #dde3ee; border-radius:10px; padding:12px 8px; text-align:center; }
+  .val-card .name { font-size:0.8rem; color:#6c7a9c; font-weight:600; }
+  .val-card .value { font-size:1.5rem; font-weight:700; margin-top:4px; }
+  .val-card.a-card { border-color:#ff6b6b; } .val-card.a-card .value { color:#ff6b6b; }
+  .val-card.b-card { border-color:#51cf66; } .val-card.b-card .value { color:#51cf66; }
+  .val-card.c-card { border-color:#4a9eff; } .val-card.c-card .value { color:#4a9eff; }
+
+  .slider-group { display:flex; flex-direction:column; gap:12px; }
+  .slider-row { display:flex; flex-direction:column; gap:4px; }
+  .slider-label { display:flex; justify-content:space-between; font-size:0.9rem; font-weight:600; }
+
+  input[type=range].a-range { accent-color:#ff6b6b; }
+  input[type=range].b-range { accent-color:#51cf66; }
+  input[type=range] { width:100%; cursor:pointer; }
+
+  .verify-box {
+    background:#fff; border:1px solid #dde3ee; border-radius:10px;
+    padding:14px; font-size:0.88rem; line-height:1.8; color:#4a5568;
+  }
+  .verify-box .eq { font-family:monospace; font-weight:700; font-size:1rem; }
+  .verify-box .ok { color:#51cf66; font-weight:700; }
+
+  .info-box { background:#eef4ff; border:1px solid #c5d8ff; border-radius:10px; padding:12px; font-size:0.85rem; line-height:1.7; color:#3a5a9c; }
+
+  .examples-title { font-size:0.82rem; font-weight:700; color:#6c7a9c; }
+  .examples { display:flex; gap:8px; flex-wrap:wrap; }
+  .ex-btn {
+    background:#fff; border:1px solid #dde3ee; border-radius:20px; padding:5px 12px;
+    font-size:0.82rem; cursor:pointer; color:#4a6fa5; transition:all 0.15s; font-weight:600;
+  }
+  .ex-btn:hover { background:#4a9eff; color:#fff; border-color:#4a9eff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📐 勾股定理</h1>
+  <span class="badge">互动课件</span>
+</header>
+
+<div class="main">
+  <div class="canvas-wrap">
+    <canvas id="canvas" width="520" height="520"></canvas>
+  </div>
+
+  <div class="panel">
+    <div class="formula-big">
+      a<span class="super">2</span> + b<span class="super">2</span> = c<span class="super">2</span>
+    </div>
+
+    <div>
+      <h2>三边长度</h2>
+      <div class="values-grid" style="margin-top:8px">
+        <div class="val-card a-card"><div class="name">直角边 a</div><div class="value" id="valA">3</div></div>
+        <div class="val-card b-card"><div class="name">直角边 b</div><div class="value" id="valB">4</div></div>
+        <div class="val-card c-card"><div class="name">斜边 c</div><div class="value" id="valC">5</div></div>
+      </div>
+    </div>
+
+    <div>
+      <h2>拖动调节</h2>
+      <div class="slider-group" style="margin-top:8px">
+        <div class="slider-row">
+          <div class="slider-label"><span style="color:#ff6b6b">直角边 a</span><span id="lblA">3</span></div>
+          <input type="range" class="a-range" id="sliderA" min="1" max="10" step="0.5" value="3"/>
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span style="color:#51cf66">直角边 b</span><span id="lblB">4</span></div>
+          <input type="range" class="b-range" id="sliderB" min="1" max="10" step="0.5" value="4"/>
+        </div>
+      </div>
+    </div>
+
+    <div class="verify-box" id="verifyBox"></div>
+
+    <div class="info-box">
+      直角三角形中，两直角边的平方和等于斜边的平方。<br/>
+      这个定理是古代数学家毕达哥拉斯发现的，在中国古代叫做 <strong>勾股定理</strong>（勾³ 股⁴ 弦⁵）。
+    </div>
+
+    <div>
+      <div class="examples-title">常见勾股数</div>
+      <div class="examples" style="margin-top:8px">
+        <button class="ex-btn" data-a="3" data-b="4">3,4,5</button>
+        <button class="ex-btn" data-a="5" data-b="12">5,12,13</button>
+        <button class="ex-btn" data-a="8" data-b="6">6,8,10</button>
+        <button class="ex-btn" data-a="7" data-b="24">7,24,25</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let a = 3, b = 4;
+
+function draw() {
+  const c = Math.sqrt(a*a + b*b);
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const PAD = 60;
+  const maxSide = Math.max(a, b);
+  const unit = (Math.min(W, H) - PAD*2) / (maxSide + 2);
+
+  // 三角形顶点
+  const O = { x: PAD + unit, y: H - PAD - unit };      // 直角
+  const A = { x: PAD + unit, y: H - PAD - unit - a*unit }; // a 边顶端
+  const B = { x: PAD + unit + b*unit, y: H - PAD - unit }; // b 边右端
+
+  // --- 正方形（面积演示）---
+  const sqA_size = a * unit;
+  const sqB_size = b * unit;
+  const sqC_size = c * unit;
+
+  // a 边的正方形（左侧，红色）
+  ctx.fillStyle = 'rgba(255,107,107,0.15)';
+  ctx.strokeStyle = '#ff6b6b'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.rect(O.x - sqA_size, A.y, sqA_size, sqA_size);
+  ctx.fill(); ctx.stroke();
+
+  // b 边的正方形（下方，绿色）
+  ctx.fillStyle = 'rgba(81,207,102,0.15)';
+  ctx.strokeStyle = '#51cf66';
+  ctx.beginPath();
+  ctx.rect(O.x, O.y, sqB_size, sqB_size);
+  ctx.fill(); ctx.stroke();
+
+  // c 边的正方形（斜边，蓝色）
+  const angle = Math.atan2(A.y - B.y, A.x - B.x);
+  ctx.fillStyle = 'rgba(74,158,255,0.12)';
+  ctx.strokeStyle = '#4a9eff';
+  ctx.lineWidth = 2;
+  ctx.save();
+  ctx.translate(B.x, B.y);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.rect(0, 0, sqC_size, -sqC_size);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+
+  // --- 三角形 ---
+  ctx.fillStyle = 'rgba(100,150,255,0.12)';
+  ctx.strokeStyle = '#4a6fa5'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(O.x, O.y); ctx.lineTo(A.x, A.y); ctx.lineTo(B.x, B.y);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+
+  // 直角标记
+  const rs = 12;
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(O.x + rs, O.y); ctx.lineTo(O.x + rs, O.y - rs); ctx.lineTo(O.x, O.y - rs);
+  ctx.stroke();
+
+  // 边长标注
+  ctx.font = 'bold 16px PingFang SC, sans-serif'; ctx.textAlign = 'center';
+
+  // a 边标注
+  ctx.fillStyle = '#ff6b6b';
+  ctx.fillText(`a = ${a}`, O.x - sqA_size/2 - 4, (O.y + A.y)/2);
+
+  // b 边标注
+  ctx.fillStyle = '#51cf66';
+  ctx.fillText(`b = ${b}`, O.x + sqB_size/2, O.y + sqB_size + 20);
+
+  // c 边标注（斜边中点）
+  ctx.fillStyle = '#4a9eff';
+  const midC = { x: (A.x+B.x)/2, y: (A.y+B.y)/2 };
+  ctx.fillText(`c = ${c.toFixed(2)}`, midC.x + 28, midC.y - 10);
+
+  // 面积标注
+  ctx.font = '13px PingFang SC, sans-serif';
+  ctx.fillStyle = 'rgba(255,107,107,0.8)';
+  ctx.fillText(`a² = ${(a*a).toFixed(1)}`, O.x - sqA_size/2, (O.y + A.y)/2 + 20);
+  ctx.fillStyle = 'rgba(81,207,102,0.9)';
+  ctx.fillText(`b² = ${(b*b).toFixed(1)}`, O.x + sqB_size/2, O.y + sqB_size + 38);
+
+  // 更新数值显示
+  document.getElementById('valA').textContent = a;
+  document.getElementById('valB').textContent = b;
+  document.getElementById('valC').textContent = c.toFixed(2);
+
+  // 验证框
+  document.getElementById('verifyBox').innerHTML = `
+    <div class="eq">a² + b² = ${a}² + ${b}²</div>
+    <div class="eq">= ${a*a} + ${b*b}</div>
+    <div class="eq">= ${a*a+b*b}</div>
+    <div class="eq">c² = ${c.toFixed(2)}² = ${(c*c).toFixed(1)}</div>
+    <div class="ok">✓ 验证成立</div>
+  `;
+}
+
+document.getElementById('sliderA').addEventListener('input', e => {
+  a = parseFloat(e.target.value);
+  document.getElementById('lblA').textContent = a;
+  draw();
+});
+document.getElementById('sliderB').addEventListener('input', e => {
+  b = parseFloat(e.target.value);
+  document.getElementById('lblB').textContent = b;
+  draw();
+});
+
+document.querySelectorAll('.ex-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    a = parseFloat(btn.dataset.a); b = parseFloat(btn.dataset.b);
+    document.getElementById('sliderA').value = a; document.getElementById('lblA').textContent = a;
+    document.getElementById('sliderB').value = b; document.getElementById('lblB').textContent = b;
+    draw();
+  });
+});
+
+draw();
+</script>
+</body>
+</html>

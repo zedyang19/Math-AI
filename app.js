@@ -1,0 +1,444 @@
+/**
+ * 初中数学智能课堂 · 主逻辑
+ * 功能：课件导航 + 豆包 AI 对话（流式输出）+ 全屏管理
+ */
+
+// =========================================================
+// 配置 & 状态
+// =========================================================
+const State = {
+  sidebarOpen: true,
+  aiPanelOpen: false,
+  currentCourse: null,
+  chatHistory: [],   // { role: 'user'|'assistant', content: string }
+  isStreaming: false,
+};
+
+// 从 localStorage 读取设置
+const Settings = {
+  get apiKey()       { return localStorage.getItem('doubao_api_key') || ''; },
+  get modelId()      { return localStorage.getItem('doubao_model_id') || ''; },
+  get systemPrompt() {
+    return localStorage.getItem('doubao_system_prompt') ||
+      '你是一名专业的初中数学助教，名叫"豆包"。用简洁清晰的语言解释数学概念，适合初中生（13-15岁）理解。解题时展示完整步骤。数学公式使用 LaTeX 格式，行内公式用 $...$ 包裹，独立公式用 $$...$$ 包裹。回答简洁有重点。';
+  },
+};
+
+// =========================================================
+// DOM 引用
+// =========================================================
+const $ = id => document.getElementById(id);
+
+const els = {
+  sidebar:        $('sidebar'),
+  sidebarToggle:  $('sidebarToggle'),
+  courseList:     $('courseList'),
+  placeholder:    $('placeholder'),
+  courseFrame:    $('courseFrame'),
+  fullscreenBtn:  $('fullscreenBtn'),
+  settingsBtn:    $('settingsBtn'),
+  settingsModal:  $('settingsModal'),
+  settingsClose:  $('settingsClose'),
+  settingsSave:   $('settingsSave'),
+  apiKeyInput:    $('apiKeyInput'),
+  modelInput:     $('modelInput'),
+  systemPromptInput: $('systemPromptInput'),
+  aiFab:          $('aiFab'),
+  aiPanel:        $('aiPanel'),
+  aiPanelClose:   $('aiPanelClose'),
+  aiMessages:     $('aiMessages'),
+  aiInput:        $('aiInput'),
+  aiSend:         $('aiSend'),
+  clearChatBtn:   $('clearChatBtn'),
+  quickPrompts:   $('quickPrompts'),
+};
+
+// =========================================================
+// 课件目录渲染
+// =========================================================
+async function loadCourseList() {
+  try {
+    const res = await fetch('courses.json');
+    const data = await res.json();
+    renderCourseList(data);
+  } catch (e) {
+    els.courseList.innerHTML =
+      '<div style="padding:16px;color:#5a607a;font-size:0.85rem;">暂无课件，请添加 courses.json</div>';
+  }
+}
+
+function renderCourseList(chapters) {
+  els.courseList.innerHTML = '';
+  chapters.forEach(chapter => {
+    // 章节标题
+    const chDiv = document.createElement('div');
+    chDiv.className = 'course-chapter';
+    chDiv.textContent = chapter.title;
+    els.courseList.appendChild(chDiv);
+
+    // 课件条目
+    chapter.items.forEach(item => {
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'course-item';
+      itemDiv.dataset.src = item.src;
+      itemDiv.innerHTML = `<span class="course-item-icon">${item.icon || '📄'}</span><span>${item.title}</span>`;
+      itemDiv.addEventListener('click', () => openCourse(item, itemDiv));
+      els.courseList.appendChild(itemDiv);
+    });
+  });
+}
+
+function openCourse(item, el) {
+  // 清除之前的 active
+  document.querySelectorAll('.course-item.active').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+
+  els.placeholder.classList.add('hidden');
+  els.courseFrame.classList.remove('hidden');
+  els.courseFrame.src = item.src;
+  State.currentCourse = item;
+}
+
+// =========================================================
+// 侧边栏切换
+// =========================================================
+function toggleSidebar() {
+  State.sidebarOpen = !State.sidebarOpen;
+  els.sidebar.classList.toggle('collapsed', !State.sidebarOpen);
+}
+
+// =========================================================
+// AI 面板开关
+// =========================================================
+function openAiPanel() {
+  State.aiPanelOpen = true;
+  els.aiFab.classList.add('hidden');
+  els.aiPanel.classList.remove('hidden');
+  setTimeout(() => els.aiInput.focus(), 50);
+}
+
+function closeAiPanel() {
+  State.aiPanelOpen = false;
+  els.aiPanel.classList.add('hidden');
+  els.aiFab.classList.remove('hidden');
+}
+
+// =========================================================
+// AI 对话（豆包 API，兼容 OpenAI 格式）
+// =========================================================
+function appendMessage(role, html, streaming = false) {
+  const wrap = document.createElement('div');
+  wrap.className = `message ${role === 'user' ? 'user-message' : 'ai-message'}`;
+  const content = document.createElement('div');
+  content.className = 'message-content';
+  content.innerHTML = html;
+  wrap.appendChild(content);
+  els.aiMessages.appendChild(wrap);
+  els.aiMessages.scrollTop = els.aiMessages.scrollHeight;
+  return content;
+}
+
+function showTyping() {
+  const wrap = document.createElement('div');
+  wrap.className = 'message ai-message typing-indicator';
+  wrap.innerHTML = `<div class="message-content">
+    <span class="typing-dot"></span>
+    <span class="typing-dot"></span>
+    <span class="typing-dot"></span>
+  </div>`;
+  els.aiMessages.appendChild(wrap);
+  els.aiMessages.scrollTop = els.aiMessages.scrollHeight;
+  return wrap;
+}
+
+function removeTyping() {
+  const indicator = els.aiMessages.querySelector('.typing-indicator');
+  if (indicator) indicator.remove();
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** 把 markdown 简单格式 + LaTeX 转成 HTML（不引入完整 md 库） */
+function renderMarkdown(text) {
+  // 保护 LaTeX 块
+  const blocks = [];
+  text = text.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+    const idx = blocks.length;
+    try {
+      blocks.push(katex.renderToString(math.trim(), { displayMode: true, throwOnError: false }));
+    } catch { blocks.push(`<code>$$${math}$$</code>`); }
+    return `\x00BLOCK${idx}\x00`;
+  });
+  text = text.replace(/\$((?:[^$\\]|\\.)+?)\$/g, (_, math) => {
+    const idx = blocks.length;
+    try {
+      blocks.push(katex.renderToString(math.trim(), { displayMode: false, throwOnError: false }));
+    } catch { blocks.push(`<code>$${math}$</code>`); }
+    return `\x00BLOCK${idx}\x00`;
+  });
+
+  // 简单 markdown
+  text = escapeHtml(text);
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  text = text.replace(/^#{1,3}\s+(.+)$/gm, '<strong>$1</strong>');
+  text = text.replace(/\n/g, '<br/>');
+
+  // 还原 LaTeX
+  text = text.replace(/\x00BLOCK(\d+)\x00/g, (_, i) => blocks[parseInt(i)]);
+  return text;
+}
+
+async function sendMessage(userText) {
+  if (!userText.trim() || State.isStreaming) return;
+
+  const apiKey = Settings.apiKey;
+  const modelId = Settings.modelId;
+
+  if (!apiKey || !modelId) {
+    showToast('请先在设置中填写 API Key 和模型 ID');
+    openSettings();
+    return;
+  }
+
+  // 显示用户消息
+  appendMessage('user', escapeHtml(userText));
+  State.chatHistory.push({ role: 'user', content: userText });
+
+  // 显示打字动画
+  const typing = showTyping();
+  State.isStreaming = true;
+  els.aiSend.disabled = true;
+
+  // 构造消息列表（带 system prompt）
+  const messages = [
+    { role: 'system', content: Settings.systemPrompt },
+    ...State.chatHistory,
+  ];
+
+  let fullText = '';
+  let aiContentEl = null;
+
+  try {
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelId,
+        messages,
+        stream: true,
+        max_tokens: 1500,
+      }),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`API 错误 ${response.status}: ${err}`);
+    }
+
+    // 移除打字动画，创建 AI 消息气泡
+    typing.remove();
+    aiContentEl = appendMessage('assistant', '');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lines = chunk.split('\n').filter(l => l.startsWith('data: '));
+
+      for (const line of lines) {
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta?.content || '';
+          if (delta) {
+            fullText += delta;
+            aiContentEl.innerHTML = renderMarkdown(fullText);
+            els.aiMessages.scrollTop = els.aiMessages.scrollHeight;
+          }
+        } catch { /* 忽略解析错误 */ }
+      }
+    }
+
+    State.chatHistory.push({ role: 'assistant', content: fullText });
+
+  } catch (err) {
+    typing.remove();
+    if (aiContentEl) {
+      aiContentEl.innerHTML = `<span style="color:#ff6b6b">请求失败：${escapeHtml(err.message)}</span>`;
+    } else {
+      appendMessage('assistant', `<span style="color:#ff6b6b">请求失败：${escapeHtml(err.message)}</span>`);
+    }
+    console.error('AI 请求失败:', err);
+  } finally {
+    State.isStreaming = false;
+    els.aiSend.disabled = false;
+    els.aiInput.focus();
+  }
+}
+
+// =========================================================
+// 设置弹窗
+// =========================================================
+function openSettings() {
+  els.apiKeyInput.value = Settings.apiKey;
+  els.modelInput.value = Settings.modelId;
+  els.systemPromptInput.value = Settings.systemPrompt;
+  els.settingsModal.classList.remove('hidden');
+}
+
+function closeSettings() {
+  els.settingsModal.classList.add('hidden');
+}
+
+function saveSettings() {
+  localStorage.setItem('doubao_api_key', els.apiKeyInput.value.trim());
+  localStorage.setItem('doubao_model_id', els.modelInput.value.trim());
+  localStorage.setItem('doubao_system_prompt', els.systemPromptInput.value.trim());
+  closeSettings();
+  showToast('设置已保存');
+}
+
+// =========================================================
+// 全屏
+// =========================================================
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    document.body.classList.add('fullscreen');
+  } else {
+    document.exitFullscreen().catch(() => {});
+    document.body.classList.remove('fullscreen');
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.body.classList.remove('fullscreen');
+  }
+});
+
+// =========================================================
+// Toast 提示
+// =========================================================
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => {
+    t.classList.add('hide');
+    setTimeout(() => t.remove(), 300);
+  }, 2500);
+}
+
+// =========================================================
+// 事件绑定
+// =========================================================
+function bindEvents() {
+  // 侧边栏
+  els.sidebarToggle.addEventListener('click', toggleSidebar);
+
+  // AI 面板
+  els.aiFab.addEventListener('click', openAiPanel);
+  els.aiPanelClose.addEventListener('click', closeAiPanel);
+
+  // 发送消息
+  els.aiSend.addEventListener('click', () => {
+    const text = els.aiInput.value.trim();
+    if (text) { els.aiInput.value = ''; autoResizeInput(); sendMessage(text); }
+  });
+
+  els.aiInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const text = els.aiInput.value.trim();
+      if (text) { els.aiInput.value = ''; autoResizeInput(); sendMessage(text); }
+    }
+  });
+
+  els.aiInput.addEventListener('input', autoResizeInput);
+
+  // 快捷指令
+  els.quickPrompts.addEventListener('click', e => {
+    const btn = e.target.closest('.quick-btn');
+    if (btn) {
+      const prompt = btn.dataset.prompt;
+      sendMessage(prompt);
+    }
+  });
+
+  // 清空对话
+  els.clearChatBtn.addEventListener('click', () => {
+    State.chatHistory = [];
+    els.aiMessages.innerHTML = `
+      <div class="message ai-message">
+        <div class="message-content">对话已清空，随时可以继续提问！</div>
+      </div>`;
+  });
+
+  // 设置
+  els.settingsBtn.addEventListener('click', openSettings);
+  els.settingsClose.addEventListener('click', closeSettings);
+  els.settingsSave.addEventListener('click', saveSettings);
+  els.settingsModal.addEventListener('click', e => {
+    if (e.target === els.settingsModal) closeSettings();
+  });
+
+  // 全屏
+  els.fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+  // 键盘快捷键
+  document.addEventListener('keydown', e => {
+    if (e.altKey && e.key === 's') { e.preventDefault(); toggleSidebar(); }
+    if (e.altKey && e.key === 'a') { e.preventDefault(); State.aiPanelOpen ? closeAiPanel() : openAiPanel(); }
+    if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
+    if (e.key === 'Escape') {
+      if (!els.settingsModal.classList.contains('hidden')) closeSettings();
+      else if (State.aiPanelOpen) closeAiPanel();
+    }
+  });
+}
+
+function autoResizeInput() {
+  els.aiInput.style.height = 'auto';
+  els.aiInput.style.height = Math.min(els.aiInput.scrollHeight, 120) + 'px';
+}
+
+// =========================================================
+// KaTeX 初始化（供 HTML onload 调用）
+// =========================================================
+window.initKaTeX = function() {
+  // 已通过 renderMarkdown 手动渲染，无需全局 auto-render
+};
+
+// =========================================================
+// 启动
+// =========================================================
+document.addEventListener('DOMContentLoaded', () => {
+  loadCourseList();
+  bindEvents();
+
+  // 若未设置 API Key，启动时提示
+  if (!Settings.apiKey) {
+    setTimeout(() => showToast('请点击右上角 ⚙ 设置 API Key'), 1000);
+  }
+});

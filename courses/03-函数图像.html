@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>函数图像探究</title>
+<style>
+  :root { --bg:#fff; --text:#1a1a2e; --accent:#4a9eff; --grid:#e8ecf0; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'PingFang SC','Microsoft YaHei',sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; }
+
+  header { background:#1a1d27; color:#e8eaf0; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  header h1 { font-size:1.2rem; }
+  .badge { background:#4a9eff; color:#fff; font-size:0.75rem; padding:3px 10px; border-radius:20px; }
+
+  .main { flex:1; display:flex; gap:0; overflow:hidden; }
+
+  /* 画布区 */
+  .canvas-wrap { flex:1; position:relative; }
+  canvas { display:block; width:100%; height:100%; cursor:crosshair; }
+
+  /* 控制面板 */
+  .panel { width:300px; flex-shrink:0; background:#f7f9fc; border-left:1px solid #dde3ee; display:flex; flex-direction:column; padding:20px 16px; gap:18px; overflow-y:auto; }
+
+  .panel h2 { font-size:0.85rem; font-weight:700; color:#6c7a9c; letter-spacing:1px; text-transform:uppercase; }
+
+  .func-selector { display:flex; gap:8px; flex-wrap:wrap; }
+  .func-btn {
+    flex:1; min-width:70px; padding:8px 4px; border:2px solid #dde3ee; border-radius:8px;
+    background:#fff; cursor:pointer; font-size:0.88rem; font-weight:600; color:#6c7a9c;
+    transition:all 0.15s; text-align:center;
+  }
+  .func-btn:hover { border-color:#4a9eff; color:#4a9eff; }
+  .func-btn.active { border-color:#4a9eff; background:#4a9eff; color:#fff; }
+
+  .slider-group { display:flex; flex-direction:column; gap:10px; }
+  .slider-row { display:flex; flex-direction:column; gap:4px; }
+  .slider-label { display:flex; justify-content:space-between; font-size:0.88rem; }
+  .slider-label span { font-weight:700; color:#4a9eff; }
+  input[type=range] { width:100%; accent-color:#4a9eff; cursor:pointer; }
+
+  .formula-box {
+    background:#1a1d27; color:#e8eaf0; border-radius:10px;
+    padding:14px 16px; font-size:1.05rem; text-align:center; letter-spacing:0.5px;
+    font-family:'Courier New',monospace; min-height:50px; display:flex; align-items:center; justify-content:center;
+  }
+
+  .info-box { background:#fff; border:1px solid #dde3ee; border-radius:10px; padding:12px; font-size:0.85rem; line-height:1.7; color:#4a5568; }
+
+  .reset-btn {
+    background:#f0f4ff; border:1px solid #c5d3f0; border-radius:8px;
+    padding:10px; cursor:pointer; font-size:0.9rem; color:#4a6fa5;
+    font-weight:600; transition:background 0.15s;
+  }
+  .reset-btn:hover { background:#dde8ff; }
+
+  /* 坐标提示 */
+  .coord-tip { position:absolute; bottom:10px; left:12px; font-size:0.78rem; color:#999; pointer-events:none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📈 函数图像探究</h1>
+  <span class="badge">互动课件</span>
+</header>
+
+<div class="main">
+  <div class="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div class="coord-tip" id="coordTip">移动鼠标查看坐标</div>
+  </div>
+
+  <div class="panel">
+    <div>
+      <h2>选择函数类型</h2>
+      <div class="func-selector" style="margin-top:10px">
+        <button class="func-btn active" data-type="linear">一次函数</button>
+        <button class="func-btn" data-type="quadratic">二次函数</button>
+        <button class="func-btn" data-type="absolute">绝对值</button>
+        <button class="func-btn" data-type="inverse">反比例</button>
+      </div>
+    </div>
+
+    <div class="formula-box" id="formulaBox">y = kx + b</div>
+
+    <div>
+      <h2>调节参数</h2>
+      <div class="slider-group" id="sliderGroup" style="margin-top:10px"></div>
+    </div>
+
+    <div class="info-box" id="infoBox">
+      拖动上方滑块，观察函数图像的变化规律。<br/>
+      <strong>k</strong> 控制斜率（倾斜程度），<strong>b</strong> 控制截距（与 y 轴的交点）。
+    </div>
+
+    <button class="reset-btn" id="resetBtn">↺ 恢复默认值</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// 状态
+let funcType = 'linear';
+let params = { k:1, b:0, a:1, h:0, c:0 };
+let defaults = {};
+
+// 函数配置
+const funcConfig = {
+  linear: {
+    formula: (p) => `y = ${fmt(p.k)}x ${fmtB(p.b)}`,
+    sliders: [
+      { key:'k', label:'k（斜率）', min:-3, max:3, step:0.1, default:1 },
+      { key:'b', label:'b（截距）', min:-5, max:5, step:0.1, default:0 },
+    ],
+    fn: (x,p) => p.k*x + p.b,
+    info: '一次函数 y = kx + b：k 为斜率，决定图像倾斜方向；b 为 y 轴截距。<br/>当 k > 0，单调递增；k < 0，单调递减；k = 0，为常数函数。',
+  },
+  quadratic: {
+    formula: (p) => `y = ${fmt(p.a)}x² ${fmtB(p.h, 'h', 'x')} ${fmtC(p.c)}`,
+    sliders: [
+      { key:'a', label:'a（开口方向）', min:-2, max:2, step:0.1, default:1 },
+      { key:'h', label:'h（左右平移）', min:-4, max:4, step:0.2, default:0 },
+      { key:'c', label:'c（上下平移）', min:-4, max:4, step:0.2, default:0 },
+    ],
+    fn: (x,p) => p.a*(x-p.h)*(x-p.h) + p.c,
+    info: '二次函数 y = a(x-h)² + c：顶点为 (h, c)。<br/>a > 0 开口向上，a < 0 开口向下，|a| 越大开口越窄。',
+  },
+  absolute: {
+    formula: (p) => `y = |${fmt(p.k)}x| ${fmtB(p.b)}`,
+    sliders: [
+      { key:'k', label:'k（陡峭程度）', min:-3, max:3, step:0.1, default:1 },
+      { key:'b', label:'b（上下移动）', min:-4, max:4, step:0.2, default:0 },
+    ],
+    fn: (x,p) => Math.abs(p.k*x) + p.b,
+    info: '绝对值函数 y = |kx| + b：图像呈 V 形，顶点在 (0, b)。<br/>k 的正负不影响图像（因为取绝对值），但影响陡峭程度。',
+  },
+  inverse: {
+    formula: (p) => `y = ${fmt(p.k)} / x`,
+    sliders: [
+      { key:'k', label:'k（比例系数）', min:-8, max:8, step:0.5, default:2 },
+    ],
+    fn: (x,p) => x !== 0 ? p.k/x : null,
+    info: '反比例函数 y = k/x：图像为双曲线，x ≠ 0。<br/>k > 0，图像在一三象限；k < 0，图像在二四象限。',
+  },
+};
+
+function fmt(v) {
+  if (v === 1) return '';
+  if (v === -1) return '-';
+  return v.toFixed(1).replace(/\.0$/,'');
+}
+function fmtB(v, key='b', xStr='') {
+  const n = parseFloat(v.toFixed(1));
+  if (key === 'h') return n === 0 ? '' : (n > 0 ? ` - ${n}${xStr}` : ` + ${Math.abs(n)}${xStr}`);
+  return n === 0 ? '' : (n > 0 ? ` + ${n}` : ` - ${Math.abs(n)}`);
+}
+function fmtC(v) {
+  const n = parseFloat(v.toFixed(1));
+  return n === 0 ? '' : (n > 0 ? ` + ${n}` : ` - ${Math.abs(n)}`);
+}
+
+// 坐标系参数
+let origin, scale;
+
+function resize() {
+  canvas.width = canvas.parentElement.clientWidth;
+  canvas.height = canvas.parentElement.clientHeight;
+  origin = { x: canvas.width/2, y: canvas.height/2 };
+  scale = Math.min(canvas.width, canvas.height) / 12;
+  draw();
+}
+
+function toCanvas(x, y) {
+  return { x: origin.x + x*scale, y: origin.y - y*scale };
+}
+
+function draw() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // 背景
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+
+  // 网格
+  ctx.strokeStyle = '#e8ecf0';
+  ctx.lineWidth = 1;
+  const step = scale;
+  for (let x = origin.x % step; x < W; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = origin.y % step; y < H; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // 坐标轴
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  // x轴
+  ctx.beginPath(); ctx.moveTo(0, origin.y); ctx.lineTo(W, origin.y); ctx.stroke();
+  // y轴
+  ctx.beginPath(); ctx.moveTo(origin.x, 0); ctx.lineTo(origin.x, H); ctx.stroke();
+  // 箭头
+  drawArrow(W-2, origin.y, 'right');
+  drawArrow(origin.x, 2, 'up');
+
+  // 轴标签
+  ctx.fillStyle = '#666'; ctx.font = '14px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('x', W-18, origin.y-8);
+  ctx.fillText('y', origin.x+8, 16);
+  ctx.fillText('O', origin.x+5, origin.y+16);
+
+  // 刻度
+  ctx.fillStyle = '#999'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  for (let i = -10; i <= 10; i++) {
+    if (i===0) continue;
+    const cx = toCanvas(i,0); const cy = toCanvas(0,i);
+    ctx.beginPath(); ctx.moveTo(cx.x, origin.y-3); ctx.lineTo(cx.x, origin.y+3); ctx.strokeStyle='#999'; ctx.lineWidth=1; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(origin.x-3, cy.y); ctx.lineTo(origin.x+3, cy.y); ctx.stroke();
+    if (Math.abs(i) <= 6 && i%1===0) {
+      ctx.fillText(i, cx.x, origin.y+14);
+      ctx.textAlign = 'right';
+      ctx.fillText(i, origin.x-6, cy.y+4);
+      ctx.textAlign = 'center';
+    }
+  }
+
+  // 函数曲线
+  const cfg = funcConfig[funcType];
+  ctx.strokeStyle = '#4a9eff';
+  ctx.lineWidth = 3;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  let first = true, prevNull = false;
+  const xMin = -origin.x/scale, xMax = (W-origin.x)/scale;
+  const step2 = 2/scale;
+  for (let x = xMin; x <= xMax; x += step2) {
+    const y = cfg.fn(x, params);
+    if (y === null || !isFinite(y) || Math.abs(y) > 50) { first=true; prevNull=true; continue; }
+    const cp = toCanvas(x, y);
+    if (first || prevNull) { ctx.moveTo(cp.x, cp.y); first=false; }
+    else { ctx.lineTo(cp.x, cp.y); }
+    prevNull=false;
+  }
+  ctx.stroke();
+
+  // 更新公式
+  document.getElementById('formulaBox').textContent = cfg.formula(params);
+}
+
+function drawArrow(x, y, dir) {
+  ctx.fillStyle = '#333';
+  ctx.beginPath();
+  if (dir==='right') { ctx.moveTo(x,y); ctx.lineTo(x-10,y-5); ctx.lineTo(x-10,y+5); }
+  else { ctx.moveTo(x,y); ctx.lineTo(x-5,y+10); ctx.lineTo(x+5,y+10); }
+  ctx.closePath(); ctx.fill();
+}
+
+// 渲染滑块
+function renderSliders() {
+  const cfg = funcConfig[funcType];
+  defaults = {};
+  cfg.sliders.forEach(s => { defaults[s.key] = s.default; params[s.key] = s.default; });
+  const group = document.getElementById('sliderGroup');
+  group.innerHTML = '';
+  cfg.sliders.forEach(s => {
+    const row = document.createElement('div');
+    row.className = 'slider-row';
+    row.innerHTML = `
+      <div class="slider-label"><span>${s.label}</span><span id="val_${s.key}">${s.default}</span></div>
+      <input type="range" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.default}" data-key="${s.key}"/>
+    `;
+    group.appendChild(row);
+  });
+  group.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const k = e.target.dataset.key;
+      params[k] = parseFloat(e.target.value);
+      document.getElementById('val_'+k).textContent = params[k].toFixed(1).replace(/\.0$/,'');
+      draw();
+    });
+  });
+  document.getElementById('infoBox').innerHTML = cfg.info;
+}
+
+// 切换函数类型
+document.querySelectorAll('.func-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.func-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    funcType = btn.dataset.type;
+    renderSliders();
+    draw();
+  });
+});
+
+// 重置
+document.getElementById('resetBtn').addEventListener('click', () => {
+  Object.keys(defaults).forEach(k => {
+    params[k] = defaults[k];
+    const inp = document.querySelector(`input[data-key="${k}"]`);
+    if (inp) { inp.value = defaults[k]; document.getElementById('val_'+k).textContent = defaults[k]; }
+  });
+  draw();
+});
+
+// 坐标提示
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const cx = (e.clientX - rect.left) * (canvas.width/rect.width);
+  const cy = (e.clientY - rect.top) * (canvas.height/rect.height);
+  const mx = ((cx - origin.x) / scale).toFixed(2);
+  const my = ((origin.y - cy) / scale).toFixed(2);
+  document.getElementById('coordTip').textContent = `x = ${mx}，y = ${my}`;
+});
+
+window.addEventListener('resize', resize);
+resize();
+renderSliders();
+draw();
+</script>
+</body>
+</html>
