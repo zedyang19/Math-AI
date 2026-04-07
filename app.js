@@ -54,6 +54,8 @@ const els = {
   micBtn:         $('micBtn'),
   voiceStatus:    $('voiceStatus'),
   voiceText:      $('voiceText'),
+  ttsToggleBtn:   $('ttsToggleBtn'),
+  ttsIcon:        $('ttsIcon'),
 };
 
 // =========================================================
@@ -279,6 +281,8 @@ async function sendMessage(userText) {
     }
 
     State.chatHistory.push({ role: 'assistant', content: fullText });
+    // 回复完成后朗读
+    if (TTS && aiContentEl) TTS.speak(aiContentEl.innerHTML);
 
   } catch (err) {
     typing.remove();
@@ -369,6 +373,91 @@ const Voice = (() => {
     stop() { if (isRecording) rec.stop(); },
     get supported() { return true; },
   };
+})();
+
+// =========================================================
+// 语音输出（Web Speech Synthesis）
+// =========================================================
+const TTS = (() => {
+  const synth = window.speechSynthesis;
+  if (!synth) return null;
+
+  let enabled = localStorage.getItem('tts_enabled') === 'true';
+  let speaking = false;
+
+  // 去除 HTML 标签和 LaTeX，只保留纯文本朗读
+  function cleanText(html) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    let text = tmp.textContent || tmp.innerText || '';
+    // 去除 LaTeX 残留符号
+    text = text.replace(/\$\$?[\s\S]*?\$\$?/g, '，公式略，');
+    text = text.replace(/\\[a-zA-Z]+\{[^}]*\}/g, '');
+    return text.trim();
+  }
+
+  function getChineseVoice() {
+    const voices = synth.getVoices();
+    return (
+      voices.find(v => v.lang === 'zh-CN' && v.name.includes('Microsoft')) ||
+      voices.find(v => v.lang === 'zh-CN') ||
+      voices.find(v => v.lang.startsWith('zh')) ||
+      null
+    );
+  }
+
+  function speak(html) {
+    if (!enabled) return;
+    synth.cancel(); // 停止上一条
+    const text = cleanText(html);
+    if (!text) return;
+
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'zh-CN';
+    utter.rate = 0.95;
+    utter.pitch = 1;
+    const voice = getChineseVoice();
+    if (voice) utter.voice = voice;
+
+    utter.onstart = () => { speaking = true; updateIcon(); };
+    utter.onend = () => { speaking = false; updateIcon(); };
+    utter.onerror = () => { speaking = false; updateIcon(); };
+    synth.speak(utter);
+  }
+
+  function stop() {
+    synth.cancel();
+    speaking = false;
+    updateIcon();
+  }
+
+  function toggle() {
+    enabled = !enabled;
+    localStorage.setItem('tts_enabled', enabled);
+    if (!enabled) stop();
+    updateIcon();
+    showToast(enabled ? '语音朗读已开启' : '语音朗读已关闭');
+  }
+
+  function updateIcon() {
+    if (!els.ttsToggleBtn) return;
+    if (enabled) {
+      els.ttsToggleBtn.style.color = speaking ? '#4a9eff' : '#4a9eff';
+      els.ttsToggleBtn.title = '语音朗读已开启，点击关闭 (Alt+T)';
+      els.ttsToggleBtn.style.opacity = '1';
+    } else {
+      els.ttsToggleBtn.style.color = '';
+      els.ttsToggleBtn.title = '语音朗读已关闭，点击开启 (Alt+T)';
+      els.ttsToggleBtn.style.opacity = '0.4';
+    }
+  }
+
+  // 等 voices 加载后初始化图标
+  if (synth.onvoiceschanged !== undefined) {
+    synth.onvoiceschanged = updateIcon;
+  }
+
+  return { speak, stop, toggle, updateIcon, get enabled() { return enabled; } };
 })();
 
 // =========================================================
@@ -497,15 +586,26 @@ function bindEvents() {
     els.micBtn.style.cursor = 'not-allowed';
   }
 
+  // TTS 开关按钮
+  if (TTS) {
+    els.ttsToggleBtn.addEventListener('click', () => TTS.toggle());
+    setTimeout(() => TTS.updateIcon(), 500); // voices 异步加载
+  } else {
+    els.ttsToggleBtn.style.opacity = '0.3';
+    els.ttsToggleBtn.title = '当前浏览器不支持语音朗读';
+    els.ttsToggleBtn.style.cursor = 'not-allowed';
+  }
+
   // 键盘快捷键
   document.addEventListener('keydown', e => {
     if (e.altKey && e.key === 's') { e.preventDefault(); toggleSidebar(); }
     if (e.altKey && e.key === 'a') { e.preventDefault(); State.aiPanelOpen ? closeAiPanel() : openAiPanel(); }
     if (e.altKey && e.key === 'm') { e.preventDefault(); if (Voice) { if (!State.aiPanelOpen) openAiPanel(); Voice.toggle(); } }
+    if (e.altKey && e.key === 't') { e.preventDefault(); if (TTS) TTS.toggle(); }
     if (e.key === 'F11') { e.preventDefault(); toggleFullscreen(); }
     if (e.key === 'Escape') {
       if (!els.settingsModal.classList.contains('hidden')) closeSettings();
-      else if (State.aiPanelOpen) { if (Voice) Voice.stop(); closeAiPanel(); }
+      else if (State.aiPanelOpen) { if (Voice) Voice.stop(); if (TTS) TTS.stop(); closeAiPanel(); }
     }
   });
 }
